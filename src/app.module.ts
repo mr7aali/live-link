@@ -2,17 +2,20 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
-// import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Connection } from 'mongoose';
+import { ConversationsModule } from './conversations/conversations.module';
+import { MessagesModule } from './messages/messages.module';
+import configuration from './config/configuration';
+
 @Module({
   imports: [
     UsersModule,
-    ConfigModule.forRoot({ isGlobal: true }), // ← add this
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     MongooseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const uri = configService.get<string>('MONGODB_URI');
+        const uri = configService.get<string>('MONGO_URI');
         console.log('🔹 Connecting to MongoDB...');
 
         return {
@@ -35,6 +38,8 @@ import { Connection } from 'mongoose';
       },
       inject: [ConfigService],
     }),
+    ConversationsModule,
+    MessagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
