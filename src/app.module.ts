@@ -1,9 +1,41 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-
+import { UsersModule } from './users/users.module';
+// import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Connection } from 'mongoose';
 @Module({
-  imports: [],
+  imports: [
+    UsersModule,
+    ConfigModule.forRoot({ isGlobal: true }), // ← add this
+    MongooseModule.forRootAsync({
+      useFactory: (configService: ConfigService) => {
+        const uri = configService.get<string>('MONGODB_URI');
+        console.log('🔹 Connecting to MongoDB...');
+
+        return {
+          uri,
+          onConnectionCreate: (connection: Connection) => {
+            // Register event listeners
+            connection.on('connected', () => {
+              console.log('✅ MongoDB connection established.');
+            });
+            connection.on('error', (err) => {
+              console.error('🔴 MongoDB connection error:', err);
+            });
+            connection.on('disconnected', () => {
+              console.log('❌ MongoDB connection disconnected.');
+            });
+
+            return connection;
+          },
+        };
+      },
+      inject: [ConfigService],
+    }),
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
