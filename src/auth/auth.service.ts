@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Injectable,
   BadRequestException,
@@ -31,7 +29,10 @@ export class AuthService {
       passwordHash: hash,
       status: 'offline',
     });
-    return this.signPayload({ sub: user._id.toString(), username: user.username });
+    return this.signPayload({
+      sub: user._id.toString(),
+      username: user.username,
+    });
   }
 
   async validateUser(username: string, password: string) {
@@ -43,14 +44,17 @@ export class AuthService {
   }
 
   signPayload(payload: any) {
-    const secret = this.config.get('jwt.secret');
-    const expiresIn = this.config.get('jwt.expiresIn');
+    const secret = this.config.get<string>('JWT_SECRET') as string;
+    const expiresIn = this.config.get<string>('JWT_EXPIRES_IN');
     return jwt.sign(payload, secret, { expiresIn });
   }
 
   async login(username: string, password: string) {
     const user = await this.validateUser(username, password);
     if (!user) throw new UnauthorizedException('Invalid credentials');
-    return this.signPayload({ sub: user._id.toString(), username: user.username });
+    return this.signPayload({
+      sub: user._id.toString(),
+      username: user.username,
+    });
   }
 }

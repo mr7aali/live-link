@@ -29,9 +29,7 @@ export class UsersService {
     email?: string,
   ): Promise<UserDocument | null> {
     if (email) {
-      return this.userModel
-        .findOne({ $or: [{ username }, { email }] })
-        .exec();
+      return this.userModel.findOne({ $or: [{ username }, { email }] }).exec();
     }
     return this.userModel.findOne({ username }).exec();
   }
@@ -40,9 +38,7 @@ export class UsersService {
     username: string,
     phone: string,
   ): Promise<UserDocument | null> {
-    return this.userModel
-      .findOne({ $or: [{ username }, { phone }] })
-      .exec();
+    return this.userModel.findOne({ $or: [{ username }, { phone }] }).exec();
   }
 
   async updateProfile(
@@ -81,15 +77,15 @@ export class UsersService {
     return user;
   }
 
-  async searchUsers(query: string, excludeUserId: string): Promise<UserDocument[]> {
+  async searchUsers(
+    query: string,
+    excludeUserId: string,
+  ): Promise<UserDocument[]> {
     const searchRegex = new RegExp(query, 'i');
     return this.userModel
       .find({
         _id: { $ne: excludeUserId },
-        $or: [
-          { username: searchRegex },
-          { phone: searchRegex },
-        ],
+        $or: [{ username: searchRegex }, { phone: searchRegex }],
       })
       .select('-passwordHash')
       .limit(20)

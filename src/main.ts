@@ -11,7 +11,6 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.use((helmet as any)());
   app.enableCors({ origin: true, credentials: true });
-  
   // Serve static files
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
@@ -27,7 +26,7 @@ async function bootstrap() {
   );
 
   const config = app.get(ConfigService);
-  const port = config.get<number>('port') || 5000;
+  const port = config.get<number>('PORT') || 5000;
   await app.listen(port);
   console.log(`WaveChat backend running on http://localhost:${port}`);
 }
