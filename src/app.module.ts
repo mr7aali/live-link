@@ -7,6 +7,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Connection } from 'mongoose';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
+import { AuthModule } from './auth/auth.module';
+import { CallsModule } from './calls/calls.module';
+import { UploadsModule } from './uploads/uploads.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -15,7 +18,7 @@ import configuration from './config/configuration';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     MongooseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const uri = configService.get<string>('MONGO_URI');
+        const uri = configService.get<string>('mongoUri');
         console.log('🔹 Connecting to MongoDB...');
 
         return {
@@ -40,6 +43,9 @@ import configuration from './config/configuration';
     }),
     ConversationsModule,
     MessagesModule,
+    AuthModule,
+    CallsModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

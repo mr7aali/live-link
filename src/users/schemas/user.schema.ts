@@ -1,24 +1,34 @@
-// user.schema.ts
-import { Schema, Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
 
-export interface UserDocument extends Document {
+export type UserDocument = User & Document;
+
+@Schema({ timestamps: true })
+export class User {
+  @Prop({ unique: true, required: true })
   username: string;
-  email: string;
+
+  @Prop({ unique: true, required: true })
+  phone: string;
+
+  @Prop({ required: true })
   passwordHash: string;
-  displayName?: string;
-  avatarUrl?: string;
-  contacts: string[]; // userIds
-  online?: boolean;
+
+  @Prop()
+  avatar?: string;
+
+  @Prop()
+  about?: string;
+
+  @Prop({
+    type: String,
+    enum: ['online', 'offline', 'last_seen'],
+    default: 'offline',
+  })
+  status: 'online' | 'offline' | 'last_seen';
+
+  @Prop()
   lastSeen?: Date;
 }
 
-export const UserSchema = new Schema({
-  username: { type: String, unique: true },
-  email: { type: String, unique: true },
-  passwordHash: String,
-  displayName: String,
-  avatarUrl: String,
-  contacts: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-  online: { type: Boolean, default: false },
-  lastSeen: Date,
-});
+export const UserSchema = SchemaFactory.createForClass(User);
