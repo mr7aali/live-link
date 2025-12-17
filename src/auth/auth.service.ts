@@ -44,9 +44,12 @@ export class AuthService {
   }
 
   signPayload(payload: any) {
-    const secret = this.config.get<string>('JWT_SECRET') as string;
+    const secret = this.config.get<string>('JWT_SECRET');
+    if (!secret) throw new Error('JWT_SECRET is not configured');
     const expiresIn = this.config.get<string>('JWT_EXPIRES_IN');
-    return jwt.sign(payload, secret, { expiresIn });
+    return jwt.sign(payload, secret as jwt.Secret, {
+      expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
+    });
   }
 
   async login(username: string, password: string) {

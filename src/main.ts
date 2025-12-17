@@ -6,6 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -24,7 +25,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
+  app.useGlobalFilters(new GlobalExceptionFilter()); // ← Add this
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT') || 5000;
   await app.listen(port);

@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   Conversation,
   ConversationDocument,
@@ -15,26 +19,38 @@ export class ConversationsService {
 
   async createConversation(
     participantIds: string[],
-  ): Promise<ConversationDocument> {
+  ): Promise<ConversationDocument | any> {
     if (participantIds.length !== 2) {
       throw new Error('Conversation must have exactly 2 participants');
     }
 
-    // Check if conversation already exists
-    const existing = await this.conversationModel
-      .findOne({
-        participants: { $all: participantIds, $size: 2 },
-      })
-      .exec();
-
-    if (existing) {
-      return existing;
+    // (optional but recommended) prevent [A, A]
+    if (participantIds[0] === participantIds[1]) {
+      throw new BadRequestException('Participants must be different users');
     }
 
-    const conversation = new this.conversationModel({
-      participants: participantIds,
-    });
-    return conversation.save();
+    const ids = participantIds.map((id) => new Types.ObjectId(id));
+
+    // const existing = await this.conversationModel
+    //   .findOne({ participants: { $all: ids, $size: 2 } })
+    //   .populate('participants', 'username avatar status')
+    //   .populate('lastMessage')
+    //   .exec();
+    // console.log(existing);
+    // if (existing) return existing;
+
+    const created = await this.conversationModel.create({ participants: ids });
+    // IMPORTANT: populate for the response
+    const populated = await this.conversationModel
+      .findById(created._id)
+      .populate('participants', 'username avatar status')
+      .populate('lastMessage')
+      .exec();
+    console.log(created, 'created');
+    if (!created) {
+      throw new NotFoundException('Conversation creation failed');
+    }
+    return populated;
   }
 
   async getConversationsForUser(
@@ -80,5 +96,3 @@ export class ConversationsService {
       .exec();
   }
 }
-
-

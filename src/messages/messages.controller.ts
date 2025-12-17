@@ -28,6 +28,7 @@ export class MessagesController {
     },
     @Request() req: any,
   ) {
+    console.log(req.user.userId, 'req.user.userId');
     return this.messagesService.sendMessage(
       req.user.userId,
       body.conversationId,

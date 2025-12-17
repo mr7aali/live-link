@@ -21,7 +21,8 @@ export class ConversationsController {
     @Request() req: any,
   ) {
     const participantIds = [req.user.userId, body.participantId];
-    return this.conversationsService.createConversation(participantIds);
+
+    return await this.conversationsService.createConversation(participantIds);
   }
 
   @Get()
