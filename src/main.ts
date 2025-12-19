@@ -29,6 +29,6 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT') || 5000;
   await app.listen(port);
-  console.log(`WaveChat backend running on http://localhost:${port}`);
+  console.log(`Live Link backend running on http://localhost:${port}`);
 }
 bootstrap();

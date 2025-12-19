@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import {
   Controller,
   Get,
@@ -10,6 +12,10 @@ import {
 import { ConversationsService } from './conversations.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
+interface AuthenticatedRequest extends Request {
+  user: { userId: string };
+}
+
 @Controller('conversations')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
@@ -18,7 +24,7 @@ export class ConversationsController {
   @Post()
   async createConversation(
     @Body() body: { participantId: string },
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const participantIds = [req.user.userId, body.participantId];
 
@@ -26,7 +32,7 @@ export class ConversationsController {
   }
 
   @Get()
-  async getConversations(@Request() req: any) {
+  async getConversations(@Request() req: AuthenticatedRequest) {
     return this.conversationsService.getConversationsForUser(req.user.userId);
   }
 
