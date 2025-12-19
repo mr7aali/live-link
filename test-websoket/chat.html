@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Basic Chat UI • Socket.IO /messages</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0b0f;
+            --panel: #12121a;
+            --panel2: #0f0f15;
+            --border: #242436;
+            --text: #f3f3f7;
+            --muted: #a7a7b3;
+            --accent: #5b9dff;
+            --ok: #30d158;
+            --danger: #ff4d6d;
+            --bubble-me: rgba(91, 157, 255, 0.18);
+            --bubble-them: rgba(255, 255, 255, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            background:
+                radial-gradient(1200px 600px at 20% -10%, rgba(91, 157, 255, .18), transparent 60%),
+                radial-gradient(1000px 500px at 110% 10%, rgba(48, 209, 88, .10), transparent 55%),
+                var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .app {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow: auto;
+            }
+
+            body {
+                overflow: auto;
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .header {
+            padding: 14px 14px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            background: rgba(0, 0, 0, .18);
+        }
+
+        .title {
+            font-size: 15px;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sub {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: #444;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, .05);
+        }
+
+        .dot.ok {
+            background: var(--ok);
+        }
+
+        .dot.bad {
+            background: var(--danger);
+        }
+
+        .content {
+            padding: 12px 14px;
+            display: grid;
+            gap: 10px;
+            overflow: auto;
+            min-height: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            color: var(--muted);
+            margin: 8px 0 6px;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 12px;
+            outline: none;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: rgba(91, 157, 255, .65);
+            box-shadow: 0 0 0 3px rgba(91, 157, 255, .12);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 900px) {
+            .row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btns {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        button {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, .03);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform .06s ease, background .15s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, .06);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .primary {
+            border-color: rgba(91, 157, 255, .55);
+            background: rgba(91, 157, 255, .14);
+        }
+
+        .danger {
+            border-color: rgba(255, 77, 109, .55);
+            background: rgba(255, 77, 109, .12);
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* Chat area */
+        .chat {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            min-height: 0;
+        }
+
+        .chatTop {
+            padding: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            background: rgba(0, 0, 0, .18);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .chatTop .left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .chatTop .right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(255, 255, 255, .04);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .messages {
+            padding: 14px;
+            overflow: auto;
+            min-height: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, .10), rgba(0, 0, 0, .22));
+        }
+
+        .msgRow {
+            display: flex;
+            margin: 8px 0;
+        }
+
+        .msgRow.me {
+            justify-content: flex-end;
+        }
+
+        .bubble {
+            max-width: min(680px, 90%);
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            background: var(--bubble-them);
+            line-height: 1.35;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .msgRow.me .bubble {
+            background: var(--bubble-me);
+            border-color: rgba(91, 157, 255, .18);
+        }
+
+        .meta {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--muted);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .meta button {
+            padding: 4px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .typing {
+            padding: 8px 14px;
+            border-top: 1px solid rgba(255, 255, 255, .06);
+            color: var(--muted);
+            font-size: 12px;
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .typing .blink {
+            width: 6px;
+            height: 6px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, .35);
+            animation: blink 1s infinite ease-in-out;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: .2;
+                transform: translateY(0);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateY(-1px);
+            }
+        }
+
+        .composer {
+            padding: 14px;
+            border-top: 1px solid rgba(255, 255, 255, .06);
+            background: rgba(0, 0, 0, .18);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .composer textarea {
+            min-height: 44px;
+            max-height: 140px;
+            resize: vertical;
+        }
+
+        .composer .sendBtn {
+            height: 44px;
+        }
+
+        /* Debug log */
+        details {
+            border-top: 1px solid rgba(255, 255, 255, .06);
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, .12);
+        }
+
+        summary {
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .log {
+            margin-top: 10px;
+            height: 180px;
+            overflow: auto;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, .25);
+            font-size: 12px;
+        }
+
+        .line {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
+        }
+
+        .time {
+            color: var(--muted);
+            margin-right: 8px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            margin-right: 8px;
+            color: var(--text);
+            opacity: .95;
+        }
+
+        .tag.ev {
+            border-color: rgba(91, 157, 255, .35);
+            background: rgba(91, 157, 255, .10);
+        }
+
+        .tag.err {
+            border-color: rgba(255, 77, 109, .35);
+            background: rgba(255, 77, 109, .10);
+        }
+
+        .tag.ack {
+            border-color: rgba(48, 209, 88, .35);
+            background: rgba(48, 209, 88, .10);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <div class="card sidebar">
+            <div class="header">
+                <h1 class="title">
+                    <span class="dot bad" id="statusDot"></span>
+                    Basic Chat Client
+                </h1>
+                <p class="sub">
+                    Connect using JWT → set <span class="mono">conversationId</span> → send messages.
+                    <br />
+                    Open in 2 browsers with 2 tokens to test real-time.
+                </p>
+            </div>
+
+            <div class="content">
+                <div class="row">
+                    <div>
+                        <label>Backend Base URL</label>
+                        <input id="baseUrl" placeholder="http://localhost:3000" />
+                    </div>
+                    <div>
+                        <label>Namespace</label>
+                        <input id="namespace" value="/messages" />
+                    </div>
+                </div>
+
+                <label>JWT Token</label>
+                <textarea id="token" placeholder="Paste JWT token here"></textarea>
+
+                <div class="row">
+                    <div>
+                        <label>Your Label (optional)</label>
+                        <input id="meLabel" placeholder="e.g. Abid" />
+                    </div>
+                    <div>
+                        <label>Conversation ID</label>
+                        <input id="conversationId" placeholder="Conversation ID from DB" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div>
+                        <label>Message Type</label>
+                        <select id="msgType">
+                            <option value="text" selected>text</option>
+                            <option value="image">image</option>
+                            <option value="audio">audio</option>
+                            <option value="video">video</option>
+                            <option value="file">file</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Socket ID</label>
+                        <input id="socketId" disabled value="-" />
+                    </div>
+                </div>
+
+                <div class="btns">
+                    <button class="primary" id="connectBtn">Connect</button>
+                    <button class="danger" id="disconnectBtn">Disconnect</button>
+                    <button id="clearChatBtn">Clear Chat UI</button>
+                </div>
+
+                <div class="small">
+                    <b>Note:</b> Your backend emits room messages to <code>to(conversationId)</code>.
+                    If you haven’t added “join room” server-side, you’ll still receive messages via
+                    direct recipient socket emit (works for 1-to-1 tests).
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="card chat">
+            <div class="chatTop">
+                <div class="left">
+                    <div style="font-size: 14px;">
+                        Conversation: <span class="mono" id="convLabel">-</span>
+                    </div>
+                    <div class="small">
+                        Online events: <span class="mono" id="onlineFeed">waiting…</span>
+                    </div>
+                </div>
+                <div class="right">
+                    <span class="pill">
+                        Status: <span class="mono" id="statusText">disconnected</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="messages" id="messages"></div>
+
+            <div class="typing" id="typingBar">
+                <span id="typingIcon" style="display:none;" class="blink"></span>
+                <span id="typingText"> </span>
+            </div>
+
+            <div class="composer">
+                <textarea id="composerInput" placeholder="Type a message…"></textarea>
+                <button class="primary sendBtn" id="sendBtn">Send</button>
+            </div>
+
+            <details>
+                <summary>Debug event log</summary>
+                <div class="log" id="log"></div>
+            </details>
+        </div>
+    </div>
+
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        let socket = null;
+
+        // typing handling
+        let typingActive = false;
+        let typingStopTimer = null;
+
+        const $ = (id) => document.getElementById(id);
+
+        function escapeHtml(s) {
+            return String(s)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;");
+        }
+
+        function nowTime() {
+            return new Date().toLocaleTimeString();
+        }
+
+        function addLog(tag, msg, kind = "ev") {
+            const line = document.createElement("div");
+            line.className = "line";
+            line.innerHTML =
+                `<span class="time">${nowTime()}</span>` +
+                `<span class="tag ${kind}">${escapeHtml(tag)}</span>` +
+                `<span class="mono">${escapeHtml(typeof msg === "string" ? msg : JSON.stringify(msg))}</span>`;
+            $("log").prepend(line);
+        }
+
+        function setStatus(connected) {
+            const dot = $("statusDot");
+            dot.classList.remove("ok", "bad");
+            dot.classList.add(connected ? "ok" : "bad");
+            $("statusText").textContent = connected ? "connected" : "disconnected";
+        }
+
+        function saveForm() {
+            localStorage.setItem("chat_baseUrl", $("baseUrl").value.trim());
+            localStorage.setItem("chat_namespace", $("namespace").value.trim());
+            localStorage.setItem("chat_token", $("token").value);
+            localStorage.setItem("chat_conv", $("conversationId").value.trim());
+            localStorage.setItem("chat_meLabel", $("meLabel").value.trim());
+        }
+
+        function loadForm() {
+            $("baseUrl").value = localStorage.getItem("chat_baseUrl") || "http://localhost:3000";
+            $("namespace").value = localStorage.getItem("chat_namespace") || "/messages";
+            $("token").value = localStorage.getItem("chat_token") || "";
+            $("conversationId").value = localStorage.getItem("chat_conv") || "";
+            $("meLabel").value = localStorage.getItem("chat_meLabel") || "";
+            $("convLabel").textContent = $("conversationId").value.trim() || "-";
+        }
+
+        function getConfig() {
+            const baseUrl = $("baseUrl").value.trim().replace(/\/$/, "");
+            const namespaceRaw = $("namespace").value.trim();
+            const namespace = namespaceRaw.startsWith("/") ? namespaceRaw : "/" + namespaceRaw;
+            const token = $("token").value.trim();
+            return { baseUrl, namespace, token };
+        }
+
+        function appendMessage({ side, content, meta, raw, messageId }) {
+            const row = document.createElement("div");
+            row.className = "msgRow " + (side === "me" ? "me" : "them");
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+
+            // Show content nicely; fallback to JSON if needed
+            const text =
+                (typeof content === "string" && content.trim().length)
+                    ? content
+                    : (raw ? JSON.stringify(raw, null, 2) : "");
+
+            bubble.innerHTML = escapeHtml(text);
+
+            const metaDiv = document.createElement("div");
+            metaDiv.className = "meta";
+            metaDiv.innerHTML =
+                `<span>${escapeHtml(meta || "")}</span>`;
+
+            // Optional mark-as-read button (only if messageId exists)
+            if (messageId) {
+                const btn = document.createElement("button");
+                btn.textContent = "Mark read";
+                btn.addEventListener("click", () => markRead(messageId));
+                metaDiv.appendChild(btn);
+            }
+
+            bubble.appendChild(metaDiv);
+            row.appendChild(bubble);
+            $("messages").appendChild(row);
+
+            // auto scroll down
+            $("messages").scrollTop = $("messages").scrollHeight;
+        }
+
+        function setTyping(text) {
+            const icon = $("typingIcon");
+            const label = $("typingText");
+            if (text) {
+                icon.style.display = "inline-block";
+                label.textContent = text;
+            } else {
+                icon.style.display = "none";
+                label.textContent = " ";
+            }
+        }
+
+        function connect() {
+            saveForm();
+
+            const { baseUrl, namespace, token } = getConfig();
+            const conversationId = $("conversationId").value.trim();
+
+            $("convLabel").textContent = conversationId || "-";
+
+            if (!token) {
+                addLog("ERROR", "JWT token is required to connect.", "err");
+                return;
+            }
+
+            if (socket && socket.connected) {
+                addLog("INFO", "Already connected.", "ev");
+                return;
+            }
+
+            socket = io(baseUrl + namespace, {
+                auth: { token },
+                transports: ["websocket"],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                timeout: 8000,
+            });
+
+            socket.on("connect", () => {
+                setStatus(true);
+                $("socketId").value = socket.id;
+                addLog("connect", `socket.id=${socket.id}`, "ack");
+            });
+
+            socket.on("disconnect", (reason) => {
+                setStatus(false);
+                $("socketId").value = "-";
+                addLog("disconnect", reason, "err");
+            });
+
+            socket.on("connect_error", (err) => {
+                setStatus(false);
+                $("socketId").value = "-";
+                addLog("connect_error", err?.message || String(err), "err");
+            });
+
+            // Online/offline
+            socket.on("user:online", (payload) => {
+                $("onlineFeed").textContent = `online: ${payload?.userId ?? "?"}`;
+                addLog("user:online", payload);
+            });
+
+            socket.on("user:offline", (payload) => {
+                $("onlineFeed").textContent = `offline: ${payload?.userId ?? "?"}`;
+                addLog("user:offline", payload);
+            });
+
+            // Receive message
+            socket.on("message:receive", (message) => {
+                addLog("message:receive", message);
+
+                // Try to infer fields (depends on your service return shape)
+                const content = message?.content ?? message?.message ?? "";
+                const sender = message?.senderId ?? message?.sender ?? message?.from ?? "other";
+                const created = message?.createdAt ?? message?.created_at ?? "";
+                const id = message?.id ?? message?._id ?? null;
+
+                appendMessage({
+                    side: "them",
+                    content: content,
+                    meta: `${sender}${created ? " • " + created : ""}`,
+                    raw: message,
+                    messageId: id,
+                });
+            });
+
+            socket.on("message:read", (payload) => {
+                addLog("message:read", payload);
+            });
+
+            socket.on("typing:start", (payload) => {
+                addLog("typing:start", payload);
+                // Don’t show your own typing if server echoes to room; we can’t reliably know self id here.
+                setTyping("Someone is typing…");
+            });
+
+            socket.on("typing:stop", (payload) => {
+                addLog("typing:stop", payload);
+                setTyping("");
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            setStatus(false);
+            $("socketId").value = "-";
+            setTyping("");
+            addLog("INFO", "Manual disconnect", "ev");
+        }
+
+        function sendMessage() {
+            if (!socket || !socket.connected) {
+                addLog("ERROR", "Not connected. Click Connect first.", "err");
+                return;
+            }
+
+            const conversationId = $("conversationId").value.trim();
+            if (!conversationId) {
+                addLog("ERROR", "conversationId is required.", "err");
+                return;
+            }
+
+            const text = $("composerInput").value;
+            if (!text.trim()) return;
+
+            const type = $("msgType").value;
+            const payload = { conversationId, content: text, type };
+
+            // Render instantly in UI (optimistic)
+            appendMessage({
+                side: "me",
+                content: text,
+                meta: `${$("meLabel").value.trim() || "me"} • ${nowTime()}`,
+                raw: payload,
+                messageId: null,
+            });
+
+            $("composerInput").value = "";
+
+            socket.emit("message:send", payload, (ack) => {
+                addLog("ACK message:send", ack, ack?.success ? "ack" : "err");
+
+                // If ack contains message id, you can optionally mark it
+                // ack.message.id etc. (depends on your service return)
+            });
+        }
+
+        function typingStart() {
+            if (!socket || !socket.connected) return;
+            const conversationId = $("conversationId").value.trim();
+            if (!conversationId) return;
+
+            if (!typingActive) {
+                typingActive = true;
+                socket.emit("typing:start", { conversationId });
+                addLog("emit typing:start", { conversationId });
+            }
+
+            // Reset stop timer
+            if (typingStopTimer) clearTimeout(typingStopTimer);
+            typingStopTimer = setTimeout(() => typingStop(), 900);
+        }
+
+        function typingStop() {
+            if (!socket || !socket.connected) return;
+            const conversationId = $("conversationId").value.trim();
+            if (!conversationId) return;
+
+            if (typingActive) {
+                typingActive = false;
+                socket.emit("typing:stop", { conversationId });
+                addLog("emit typing:stop", { conversationId });
+            }
+        }
+
+        function markRead(messageId) {
+            if (!socket || !socket.connected) {
+                addLog("ERROR", "Not connected.", "err");
+                return;
+            }
+            socket.emit("message:read", { messageId }, (ack) => {
+                addLog("ACK message:read", ack, ack?.success ? "ack" : "err");
+            });
+            addLog("emit message:read", { messageId });
+        }
+
+        function clearChatUI() {
+            $("messages").innerHTML = "";
+            setTyping("");
+        }
+
+        // Wire up
+        window.addEventListener("load", () => {
+            loadForm();
+            setStatus(false);
+
+            $("connectBtn").addEventListener("click", connect);
+            $("disconnectBtn").addEventListener("click", disconnect);
+            $("clearChatBtn").addEventListener("click", clearChatUI);
+
+            $("conversationId").addEventListener("input", () => {
+                $("convLabel").textContent = $("conversationId").value.trim() || "-";
+                saveForm();
+            });
+
+            $("token").addEventListener("input", saveForm);
+            $("baseUrl").addEventListener("input", saveForm);
+            $("namespace").addEventListener("input", saveForm);
+            $("meLabel").addEventListener("input", saveForm);
+
+            $("sendBtn").addEventListener("click", sendMessage);
+
+            // Enter to send (Shift+Enter new line)
+            $("composerInput").addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // typing indicator events
+            $("composerInput").addEventListener("input", () => {
+                typingStart();
+            });
+        });
+    </script>
+</body>
+
+</html>

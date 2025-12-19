@@ -15,7 +15,10 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
+  @Get()
+  async getAllUsers() {
+    return this.usersService.findAllUsers();
+  }
   @Get('me')
   async getCurrentUser(@Request() req: any) {
     return this.usersService.findById(req.user.userId);

@@ -11,7 +11,9 @@ export class UsersService {
     const user = new this.userModel(userData);
     return user.save();
   }
-
+  async findAllUsers(): Promise<UserDocument[] | null> {
+    return this.userModel.find({}).exec();
+  }
   async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).select('-passwordHash').exec();
   }

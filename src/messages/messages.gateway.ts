@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/require-await */
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -41,7 +48,9 @@ export class MessagesGateway
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.split(' ')[1];
       if (!token) {
         client.disconnect();
         return;
@@ -51,7 +60,7 @@ export class MessagesGateway
       const payload = this.jwtService.verify(token, { secret });
       client.userId = payload.sub;
       this.connectedUsers.set(payload.sub, client.id);
-      
+
       // Notify user is online
       this.server.emit('user:online', { userId: payload.sub });
     } catch (error) {
@@ -76,6 +85,7 @@ export class MessagesGateway
     },
     @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    console.log(client.userId, 'sending message to', data.conversationId);
     if (!client.userId) return;
 
     try {
@@ -155,4 +165,3 @@ export class MessagesGateway
     });
   }
 }
-
