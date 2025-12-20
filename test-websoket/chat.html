@@ -521,6 +521,9 @@
     <script>
         let socket = null;
 
+        // ✅ track which conversation room we joined
+        let joinedConversationId = null;
+
         // typing handling
         let typingActive = false;
         let typingStopTimer = null;
@@ -628,6 +631,33 @@
             }
         }
 
+        // ✅ join conversation room (and optionally leave old)
+        function joinConversation(conversationId, { leaveOld = true } = {}) {
+            if (!socket || !socket.connected) return;
+            if (!conversationId) return;
+
+            // If already joined same one, do nothing
+            if (joinedConversationId === conversationId) return;
+
+            // leave old room first (safe)
+            if (leaveOld && joinedConversationId) {
+                const oldId = joinedConversationId;
+                socket.emit("conversation:leave", { conversationId: oldId }, (ack) => {
+                    addLog("ACK conversation:leave", ack, ack?.success ? "ack" : "err");
+                });
+                addLog("emit conversation:leave", { conversationId: oldId });
+            }
+
+            // join new
+            socket.emit("conversation:join", { conversationId }, (ack) => {
+                addLog("ACK conversation:join", ack, ack?.success ? "ack" : "err");
+                if (ack && ack.success) {
+                    joinedConversationId = conversationId;
+                }
+            });
+            addLog("emit conversation:join", { conversationId });
+        }
+
         function connect() {
             saveForm();
 
@@ -643,6 +673,8 @@
 
             if (socket && socket.connected) {
                 addLog("INFO", "Already connected.", "ev");
+                // ✅ if already connected, still ensure join is correct
+                joinConversation(conversationId, { leaveOld: true });
                 return;
             }
 
@@ -658,12 +690,19 @@
                 setStatus(true);
                 $("socketId").value = socket.id;
                 addLog("connect", `socket.id=${socket.id}`, "ack");
+
+                // ✅ Auto join room on connect/reconnect
+                const cid = $("conversationId").value.trim();
+                joinConversation(cid, { leaveOld: false });
             });
 
             socket.on("disconnect", (reason) => {
                 setStatus(false);
                 $("socketId").value = "-";
                 addLog("disconnect", reason, "err");
+
+                // ✅ reset joined room state (server already removed us)
+                joinedConversationId = null;
             });
 
             socket.on("connect_error", (err) => {
@@ -708,7 +747,6 @@
 
             socket.on("typing:start", (payload) => {
                 addLog("typing:start", payload);
-                // Don’t show your own typing if server echoes to room; we can’t reliably know self id here.
                 setTyping("Someone is typing…");
             });
 
@@ -720,9 +758,20 @@
 
         function disconnect() {
             if (socket) {
+                // ✅ try to leave the joined room nicely (optional)
+                if (joinedConversationId && socket.connected) {
+                    const cid = joinedConversationId;
+                    socket.emit("conversation:leave", { conversationId: cid }, (ack) => {
+                        addLog("ACK conversation:leave", ack, ack?.success ? "ack" : "err");
+                    });
+                    addLog("emit conversation:leave", { conversationId: cid });
+                }
+
                 socket.disconnect();
                 socket = null;
             }
+
+            joinedConversationId = null;
             setStatus(false);
             $("socketId").value = "-";
             setTyping("");
@@ -740,6 +789,9 @@
                 addLog("ERROR", "conversationId is required.", "err");
                 return;
             }
+
+            // ✅ ensure room joined before sending
+            joinConversation(conversationId, { leaveOld: true });
 
             const text = $("composerInput").value;
             if (!text.trim()) return;
@@ -760,16 +812,17 @@
 
             socket.emit("message:send", payload, (ack) => {
                 addLog("ACK message:send", ack, ack?.success ? "ack" : "err");
-
-                // If ack contains message id, you can optionally mark it
-                // ack.message.id etc. (depends on your service return)
             });
         }
 
         function typingStart() {
             if (!socket || !socket.connected) return;
+
             const conversationId = $("conversationId").value.trim();
             if (!conversationId) return;
+
+            // ✅ ensure joined so others in room see typing
+            joinConversation(conversationId, { leaveOld: true });
 
             if (!typingActive) {
                 typingActive = true;
@@ -784,6 +837,7 @@
 
         function typingStop() {
             if (!socket || !socket.connected) return;
+
             const conversationId = $("conversationId").value.trim();
             if (!conversationId) return;
 
@@ -799,10 +853,21 @@
                 addLog("ERROR", "Not connected.", "err");
                 return;
             }
-            socket.emit("message:read", { messageId }, (ack) => {
+
+            const conversationId = $("conversationId").value.trim();
+            if (!conversationId) {
+                addLog("ERROR", "conversationId is required for read.", "err");
+                return;
+            }
+
+            // ✅ ensure joined for consistent read receipt delivery
+            joinConversation(conversationId, { leaveOld: true });
+
+            // ✅ include conversationId (needed if backend expects it)
+            socket.emit("message:read", { messageId, conversationId }, (ack) => {
                 addLog("ACK message:read", ack, ack?.success ? "ack" : "err");
             });
-            addLog("emit message:read", { messageId });
+            addLog("emit message:read", { messageId, conversationId });
         }
 
         function clearChatUI() {
@@ -822,6 +887,12 @@
             $("conversationId").addEventListener("input", () => {
                 $("convLabel").textContent = $("conversationId").value.trim() || "-";
                 saveForm();
+
+                // ✅ if connected, switch room live
+                if (socket && socket.connected) {
+                    const cid = $("conversationId").value.trim();
+                    joinConversation(cid, { leaveOld: true });
+                }
             });
 
             $("token").addEventListener("input", saveForm);
