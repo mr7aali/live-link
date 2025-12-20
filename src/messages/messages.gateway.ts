@@ -119,7 +119,7 @@ export class MessagesGateway
     }
 
     const participants: string[] = (conversation.participants || []).map(
-      (p: any) => (p?.toString ? p.toString() : String(p)),
+      (p: any) => p._id.toString(),
     );
 
     if (!participants.includes(userId)) {
